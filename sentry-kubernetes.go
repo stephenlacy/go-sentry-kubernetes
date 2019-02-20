@@ -59,31 +59,36 @@ func main() {
 		&api.Pod{},
 		time.Second*0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				t := obj.(*api.Pod)
-				if t.Name == "product-web-1862d89b48d4667af6121ad21947591dfd217480-85c8cw6klw" {
-					fmt.Printf("add: %s %s \n", t.Name, t.Status.Phase)
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				fmt.Printf("delete: s \n")
-				t := obj.(*api.Pod)
-				if t.Name == "product-web-1862d89b48d4667af6121ad21947591dfd217480-85c8cw6klw" {
-					fmt.Printf("%s \n", t.Name)
-					fmt.Printf("%s \n", t.Status.Phase)
-				}
-			},
+			// AddFunc: func(obj interface{}) {
+			// 	t := obj.(*api.Pod)
+			// 	fmt.Printf("add: %s %s \n", t.Name, t.Status.Phase)
+			// },
+			// DeleteFunc: func(obj interface{}) {
+			// 	fmt.Printf("delete: s \n")
+			// 	t := obj.(*api.Pod)
+			// 	fmt.Printf("%s \n", t.Name)
+			// 	fmt.Printf("%s \n", t.Status.Phase)
+			// },
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				fmt.Printf("old: s, new: s \n")
-				t := oldObj.(*api.Pod)
-				if t.Name == "product-web-1862d89b48d4667af6121ad21947591dfd217480-85c8cw6klw" {
-					fmt.Printf("%s \n", t.Name)
-					fmt.Printf("%s \n", t.Status.Phase)
-
-					t2 := newObj.(*api.Pod)
-					fmt.Printf("%s \n", t.Name)
-					fmt.Printf("%s %s\n", t.Status, t2.Status.Phase)
+				t := newObj.(*api.Pod)
+				statuses := t.Status.ContainerStatuses
+				errorMessage := ""
+				for _, status := range statuses {
+					// fmt.Printf("%s\n", t.Name)
+					// fmt.Printf("%s\n", status.RestartCount)
+					if status.LastTerminationState != (api.ContainerState{}) {
+						errorMessage = fmt.Sprintf("%s %s -", errorMessage, status.LastTerminationState.Terminated.Reason)
+					}
 				}
+				fmt.Println(errorMessage)
+				// if t.Name == "product-web-1862d89b48d4667af6121ad21947591dfd217480-85c8cw6klw" {
+				// 	fmt.Printf("%s \n", t.Name)
+				// 	fmt.Printf("%s \n", t.Status.Phase)
+				//
+				// 	t2 := newObj.(*api.Pod)
+				// 	fmt.Printf("%s \n", t.Name)
+				// 	fmt.Printf("%s %s\n", t.Status, t2.Status.Phase)
+				// }
 			},
 		},
 	)
