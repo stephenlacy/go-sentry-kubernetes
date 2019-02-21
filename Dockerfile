@@ -1,4 +1,4 @@
-FROM golang:onbuild as build_image
+FROM golang:1.11 as build_image
 ADD . /go/src/app
 WORKDIR /go/src/app
 RUN go get -u github.com/golang/dep/...
