@@ -44,7 +44,7 @@ func main() {
 	watchlist := cache.NewListWatchFromClient(
 		clientset.Core().RESTClient(),
 		"pods",
-		namespace,
+		api.NamespaceAll,
 		fields.Everything(),
 	)
 
