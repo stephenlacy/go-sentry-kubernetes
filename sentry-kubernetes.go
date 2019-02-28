@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/getsentry/raven-go"
 	api "k8s.io/api/core/v1"
@@ -14,7 +15,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+var debugFlag = flag.Bool("debug", false, "Enable debug logging --debug true")
+
 func main() {
+	flag.Parse()
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
@@ -26,13 +30,16 @@ func main() {
 		fmt.Println("Missing DSN ENV token")
 		os.Exit(1)
 	}
+
 	client, err := raven.New(dsn)
 	if err != nil {
-		panic("unable to connect to sentry")
+		fmt.Println("unable to connect to sentry")
+		os.Exit(1)
 	}
 	client.SetEnvironment(os.Getenv("ENV"))
 
 	fmt.Println("Starting go-sentry-kubernetes")
+	debug(fmt.Sprintf("Using DSN: %s\n", dsn))
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -74,6 +81,7 @@ func main() {
 				}
 				if errorMessage != "" {
 					message := fmt.Sprintf("%s - %s", errorMessage, t.Name)
+					debug(message)
 					notifySentry(client, errorMessage, message, count)
 				}
 			},
@@ -82,6 +90,12 @@ func main() {
 	queue := make(chan struct{})
 	go controller.Run(queue)
 	select {}
+}
+
+func debug(msg string) {
+	if *debugFlag {
+		fmt.Println(msg)
+	}
 }
 
 func notifySentry(client *raven.Client, title string, message string, count int32) {
