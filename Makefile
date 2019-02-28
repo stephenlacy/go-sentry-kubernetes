@@ -3,6 +3,7 @@ GOBUILD=go build .
 DOCKER_USER=stevelacy
 NAME=go-sentry-kubernetes
 IMAGE=$(DOCKER_USER)/$(NAME):$(VERSION)
+LATEST=$(DOCKER_USER)/$(NAME):latest
 
 all: docker
 
@@ -14,9 +15,11 @@ build_linux:
 
 docker:
 	docker build -t $(IMAGE) .
+	docker tag $(IMAGE) $(LATEST)
 
 push:
 	docker push $(IMAGE)
+	docker push $(LATEST)
 
 clean:
 	rm -f $(NAME)
