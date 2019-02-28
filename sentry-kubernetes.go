@@ -14,8 +14,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-var namespace = "product"
-
 func main() {
 	config, err := rest.InClusterConfig()
 	if err != nil {
