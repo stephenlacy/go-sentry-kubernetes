@@ -38,6 +38,8 @@ spec:
         env:
         - name: DSN
           value: $SENTRY_DSN
+        - name: ENV
+          value: production
         image: stevelacy/go-sentry-kubernetes
         resources:
           limits:
@@ -49,6 +51,20 @@ spec:
 ```
 
 `$ kubectl apply -f ./deployment.yaml`
+
+
+Set the `--debug` flag to enable debug logs:
+
+```
+      containers:
+      - name: go-sentry-kubernetes
+        args:
+        - --debug
+        command:
+        - /app/main
+        image: stevelacy/go-sentry-kubernetes
+
+```
 
 
 MIT
