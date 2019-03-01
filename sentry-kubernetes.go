@@ -104,5 +104,5 @@ func notifySentry(client *raven.Client, title string, message string, count int3
 		"restartCount": fmt.Sprintf("%d", count),
 	}
 	debug(fmt.Sprintf("reporting: %s", title))
-	raven.CaptureMessage(title, messages)
+	client.CaptureMessage(title, messages)
 }
