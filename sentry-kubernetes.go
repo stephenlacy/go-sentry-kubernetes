@@ -24,11 +24,17 @@ func main() {
 		panic(err.Error())
 	}
 
-	dsn := os.Getenv("DSN")
+	dsn := os.Getenv("DSN")	
 
 	if dsn == "" {
 		fmt.Println("Missing DSN ENV token")
 		os.Exit(1)
+	}
+
+	namespace := os.Getenv("namespace")	
+
+	if namespace == "" {
+		namespace = api.NamespaceAll
 	}
 
 	client, err := raven.New(dsn)
@@ -49,7 +55,7 @@ func main() {
 	watchlist := cache.NewListWatchFromClient(
 		clientset.Core().RESTClient(),
 		"pods",
-		api.NamespaceAll,
+		namespace,
 		fields.Everything(),
 	)
 
