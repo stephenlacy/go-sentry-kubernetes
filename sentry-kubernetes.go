@@ -1,39 +1,26 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/getsentry/sentry-go"
 	api "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // external cluster config
+	"k8s.io/client-go/rest"
 
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var debugFlag = flag.Bool("debug", false, "Enable debug logging --debug true")
 
 func main() {
 	flag.Parse()
-	// config, err := rest.InClusterConfig()
-
-	var kubeconfig *string
-	if home := os.Getenv("HOME"); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-	}
-	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
-	if err != nil {
-		panic(err.Error())
-	}
+	config, err := rest.InClusterConfig()
 
 	// create the clientset
 	clientset, err := kubernetes.NewForConfig(config)
@@ -67,7 +54,6 @@ func main() {
 	fmt.Println("Starting go-sentry-kubernetes")
 	debug(fmt.Sprintf("Using ENV: %s\n", env))
 
-	//clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -101,8 +87,6 @@ func debug(msg string) {
 func handleEvent(_, obj interface{}) {
 	pod := obj.(*api.Pod)
 	statuses := pod.Status.ContainerStatuses
-	b, _ := json.MarshalIndent(obj, "", "  ")
-	fmt.Println(string(b))
 
 	for _, status := range statuses {
 		if status.LastTerminationState != (api.ContainerState{}) {

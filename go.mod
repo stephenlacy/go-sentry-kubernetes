@@ -4,14 +4,11 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.35.1 // indirect
-	github.com/certifi/gocertifi v0.0.0-20180118203423-deb3ae2ef261 // indirect
-	github.com/getsentry/raven-go v0.2.0
 	github.com/getsentry/sentry-go v0.3.0
+	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/google/gofuzz v0.0.0-20161122191042-44d81051d367 // indirect
 	github.com/googleapis/gnostic v0.0.0-20170729233727-0c5108395e2d // indirect
 	github.com/hashicorp/golang-lru v0.5.0 // indirect
-	github.com/imdario/mergo v0.3.8 // indirect
-	github.com/petar/GoLLRB v0.0.0-20130427215148-53be0d36a84c // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	google.golang.org/appengine v1.4.0 // indirect
