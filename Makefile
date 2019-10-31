@@ -1,4 +1,4 @@
-VERSION=$(shell git describe --always --long)
+VERSION=$(shell git describe --always --long --tags)
 GOBUILD=go build .
 DOCKER_USER=stevelacy
 NAME=go-sentry-kubernetes
