@@ -1,5 +1,5 @@
-FROM golang:1.11 as build_image
-ADD . /app
+FROM golang:1.13 as build_image
+ADD ./sentry-kubernetes.go ./go.mod ./go.sum /app/
 WORKDIR /app
 RUN go mod download
 RUN GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o main .

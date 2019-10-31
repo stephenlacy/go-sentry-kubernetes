@@ -66,5 +66,7 @@ Set the `--debug` flag to enable debug logs:
 
 ```
 
+![screenshot](./screenshot.png)
+
 
 MIT
