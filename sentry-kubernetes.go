@@ -1,53 +1,73 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/getsentry/raven-go"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/getsentry/sentry-go"
 	api "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // external cluster config
-	"k8s.io/client-go/rest"
-	"os"
-	"time"
 
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var debugFlag = flag.Bool("debug", false, "Enable debug logging --debug true")
 
 func main() {
 	flag.Parse()
-	config, err := rest.InClusterConfig()
+	// config, err := rest.InClusterConfig()
+
+	var kubeconfig *string
+	if home := os.Getenv("HOME"); home != "" {
+		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+	} else {
+		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+	}
+	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	dsn := os.Getenv("DSN")	
+	// create the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	dsn := os.Getenv("DSN")
 
 	if dsn == "" {
 		fmt.Println("Missing DSN ENV token")
 		os.Exit(1)
 	}
 
-	namespace := os.Getenv("namespace")	
+	namespace := os.Getenv("namespace")
 
 	if namespace == "" {
 		namespace = api.NamespaceAll
 	}
+	env := os.Getenv("ENV")
 
-	client, err := raven.New(dsn)
+	err = sentry.Init(sentry.ClientOptions{
+		Dsn:         dsn,
+		Environment: env,
+	})
 	if err != nil {
 		fmt.Println("unable to connect to sentry")
 		os.Exit(1)
 	}
-	client.SetEnvironment(os.Getenv("ENV"))
 
 	fmt.Println("Starting go-sentry-kubernetes")
-	debug(fmt.Sprintf("Using DSN: %s\n", dsn))
+	debug(fmt.Sprintf("Using ENV: %s\n", env))
 
-	clientset, err := kubernetes.NewForConfig(config)
+	//clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -64,33 +84,7 @@ func main() {
 		&api.Pod{},
 		time.Second*0,
 		cache.ResourceEventHandlerFuncs{
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				t := newObj.(*api.Pod)
-				statuses := t.Status.ContainerStatuses
-				errorMessage := ""
-				var count int32
-				for _, status := range statuses {
-					if status.LastTerminationState != (api.ContainerState{}) {
-						reason := status.LastTerminationState.Terminated.Reason
-						containerReason := ""
-						if status.State.Terminated != (&api.ContainerStateTerminated{}) && status.State.Terminated != nil {
-							containerReason = status.State.Terminated.Reason
-						}
-						if t.Status.Reason != "" && t.Status.Reason != reason {
-							reason = fmt.Sprintf("%s %s", reason, t.Status.Reason)
-						}
-						errorMessage = fmt.Sprintf("%s %s %s ", errorMessage, reason, containerReason)
-						if status.RestartCount != 0 {
-							count = status.RestartCount
-						}
-					}
-				}
-				if errorMessage != "" {
-					message := fmt.Sprintf("%s - %s", errorMessage, t.Name)
-					debug(message)
-					notifySentry(client, errorMessage, message, count)
-				}
-			},
+			UpdateFunc: handleEvent,
 		},
 	)
 	queue := make(chan struct{})
@@ -104,11 +98,53 @@ func debug(msg string) {
 	}
 }
 
-func notifySentry(client *raven.Client, title string, message string, count int32) {
-	messages := map[string]string{
-		"message":      message,
-		"restartCount": fmt.Sprintf("%d", count),
+func handleEvent(_, obj interface{}) {
+	pod := obj.(*api.Pod)
+	statuses := pod.Status.ContainerStatuses
+	b, _ := json.MarshalIndent(obj, "", "  ")
+	fmt.Println(string(b))
+
+	for _, status := range statuses {
+		if status.LastTerminationState != (api.ContainerState{}) {
+			exitCode := status.LastTerminationState.Terminated.ExitCode
+			codeStr := fmt.Sprintf("%d", exitCode)
+			containerMessage := ""
+			containerReason := ""
+
+			if status.LastTerminationState.Terminated != nil && exitCode != 0 {
+				containerMessage = status.LastTerminationState.Terminated.Message
+			}
+			if status.LastTerminationState.Terminated.Reason == "Completed" {
+				// break
+			}
+			if status.LastTerminationState.Terminated.Reason != "" {
+				if containerMessage != "" {
+					containerMessage += " - "
+				}
+				containerMessage += status.LastTerminationState.Terminated.Reason
+			}
+			if containerMessage == "Error" {
+				containerReason = containerMessage
+				containerMessage = fmt.Sprintf("Pod: %s %s %s", pod.ObjectMeta.Name, "exited with code: ", codeStr)
+			}
+			if containerMessage == "OOMKilled" {
+				containerReason = containerMessage
+				containerMessage = fmt.Sprintf("Pod: %s %s", pod.ObjectMeta.Name, "OOMKilled")
+			}
+			evt := sentry.NewEvent()
+			evt.Message = containerMessage
+			evt.Release = status.Image
+			evt.Platform = "kubernetes"
+			evt.Level = sentry.LevelError
+
+			evt.Extra["name"] = pod.Name
+			evt.Extra["reason"] = containerReason
+			evt.Extra["nodeName"] = pod.Spec.NodeName
+			evt.Extra["exitCode"] = codeStr
+			evt.Extra["container"] = pod.Spec.Containers[0].Name
+			evt.Extra["namespace"] = pod.ObjectMeta.Namespace
+			evt.Extra["restartCount"] = status.RestartCount
+			sentry.CaptureEvent(evt)
+		}
 	}
-	debug(fmt.Sprintf("reporting: %s", title))
-	client.CaptureMessage(title, messages)
 }
