@@ -22,7 +22,7 @@ Save as `deployment.yaml`
 
 ```yaml
 # Deployment for go-sentry-kubernetes
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: go-sentry-kubernetes
